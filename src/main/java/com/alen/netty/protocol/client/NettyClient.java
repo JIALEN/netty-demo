@@ -35,63 +35,59 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 
-
-/**
- * @author Lilinfeng
- * @date 2014年3月15日
- * @version 1.0
- */
 public class NettyClient {
 
     private ScheduledExecutorService executor = Executors
-	    .newScheduledThreadPool(1);
+            .newScheduledThreadPool(1);
     EventLoopGroup group = new NioEventLoopGroup();
 
     public void connect(int port, String host) throws Exception {
+        // 配置客户端NIO线程组
+        try {
+            Bootstrap b = new Bootstrap();
+            b.group(group).channel(NioSocketChannel.class)
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        public void initChannel(SocketChannel ch)
+                                throws Exception {
+                            ch.pipeline().addLast(new com.alen.netty.serial.ende.NettyMessageDecoder<NettyMessage, ProtostuffSerializer>(NettyMessage.class, ProtostuffSerializer.class, 1 << 20, 2, 4));
+                            ch.pipeline().addLast(new NettyMessageEncoder<NettyMessage, ProtostuffSerializer>(NettyMessage.class, ProtostuffSerializer.class));
+                            ch.pipeline().addLast("readTimeoutHandler", new ReadTimeoutHandler(50));
+                            ch.pipeline().addLast("LoginAuthHandler", new LoginAuthReqHandler());
+                            ch.pipeline().addLast("handler", new NettyClientHandler());
+                            ch.pipeline().addLast("HeartBeatHandler", new HeartBeatReqHandler());
 
-	// 配置客户端NIO线程组
-
-	try {
-	    Bootstrap b = new Bootstrap();
-	    b.group(group).channel(NioSocketChannel.class)
-		    .option(ChannelOption.TCP_NODELAY, true)
-		    .handler(new ChannelInitializer<SocketChannel>() {
-			@Override
-			public void initChannel(SocketChannel ch)
-				throws Exception {
-				ch.pipeline().addLast(new com.alen.netty.serial.ende.NettyMessageDecoder<NettyMessage,ProtostuffSerializer>(NettyMessage.class,ProtostuffSerializer.class,1<<20, 2, 4));
-				ch.pipeline().addLast(new NettyMessageEncoder<NettyMessage,ProtostuffSerializer>(NettyMessage.class,ProtostuffSerializer.class));
-				ch.pipeline().addLast("readTimeoutHandler",   new ReadTimeoutHandler(50));
-			    ch.pipeline().addLast("LoginAuthHandler",  new LoginAuthReqHandler());
-			    ch.pipeline().addLast("handler",new NettyClientHandler());
-			    ch.pipeline().addLast("HeartBeatHandler",  new HeartBeatReqHandler());
-			  
-			}
-		    });
-	    // 发起异步连接操作
-	    ChannelFuture future = b.connect(
-		    new InetSocketAddress(host, port),
-		    new InetSocketAddress(NettyConstant.LOCALIP,
-			    NettyConstant.LOCAL_PORT)).sync();
-	    future.channel().closeFuture().sync();
-	} finally {
-	    // 所有资源释放完成之后，清空资源，再次发起重连操作
-	    executor.execute(new Runnable() {
-		@Override
-		public void run() {
-		    try {
-			TimeUnit.SECONDS.sleep(1);
-			try {
-			    connect(NettyConstant.PORT, NettyConstant.REMOTEIP);// 发起重连操作
-			} catch (Exception e) {
-			    e.printStackTrace();
-			}
-		    } catch (InterruptedException e) {
-			e.printStackTrace();
-		    }
-		}
-	    });
-	}
+                        }
+                    });
+            // 发起异步连接操作
+            ChannelFuture future = b.connect(
+                    new InetSocketAddress(host, port),
+                    new InetSocketAddress(NettyConstant.LOCALIP,
+                            NettyConstant.LOCAL_PORT)).sync();
+            future.channel().closeFuture().sync();
+        } finally {
+            // 首先监听网络断连事件，如果ChanneI关闭，则执行后续的重连任务，通过Bootstrap
+            //重新发起连接，客户端挂在cIoseFuture上监听链路关闭信号，一旦关闭，则创建重连定时
+            //器，5s之后重新发起连接，直到重连成功。
+            //服务端感知到断连事件之后，需要清空缓存的登录认证注册信息，以保证后续客户端
+            //能够正常重连。
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        TimeUnit.SECONDS.sleep(1);
+                        try {
+                            connect(NettyConstant.PORT, NettyConstant.REMOTEIP);// 发起重连操作
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -99,7 +95,7 @@ public class NettyClient {
      * @throws Exception
      */
     public static void main(String[] args) throws Exception {
-	new NettyClient().connect(NettyConstant.PORT, NettyConstant.REMOTEIP);
+        new NettyClient().connect(NettyConstant.PORT, NettyConstant.REMOTEIP);
     }
 
 }
