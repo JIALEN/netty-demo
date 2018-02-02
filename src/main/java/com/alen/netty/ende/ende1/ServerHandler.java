@@ -15,7 +15,7 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
 		String request = (String)msg;
-		System.out.println("Server :" + msg);
+		System.out.println("NettyServer :" + msg);
 		String response = "服务器响应：" + msg + "$_";
 		ctx.writeAndFlush(Unpooled.copiedBuffer(response.getBytes()));
 	}

@@ -19,7 +19,7 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
 		Request req = (Request)msg;
-		System.out.println("Server : " + req.getId() + ", " + req.getName() + ", " + req.getRequestMessage());
+		System.out.println("NettyServer : " + req.getId() + ", " + req.getName() + ", " + req.getRequestMessage());
 		byte[] attachment = GzipUtils.ungzip(req.getAttachment());
 		double s=Math.random();
 		String path = "D:\\workFile\\netty-demo\\doc\\"+s+".jpg";

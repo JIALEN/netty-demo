@@ -23,7 +23,7 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 			byte[] req = new byte[buf.readableBytes()];
 			buf.readBytes(req);
 			String body = new String(req, "utf-8");
-			System.out.println("Server :" + body );
+			System.out.println("NettyServer :" + body );
 			String response = "进行返回给客户端的响应：" + body ;
 			ctx.writeAndFlush(Unpooled.copiedBuffer(response.getBytes()));
 		} finally {
